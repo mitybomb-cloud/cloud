@@ -2,15 +2,42 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from supabase import create_client, Client
+import os
 
 st.set_page_config(page_title='홈앤쇼핑 월별 직급별 교육 현황', layout='wide')
 st.title('홈앤쇼핑 월별 직급별 교육 현황')
 
-# CSV 로드
+# Supabase 연결
+@st.cache_resource
+def init_supabase() -> Client:
+    supabase_url = os.getenv('SUPABASE_URL', 'https://lxctrbmrjeypvctkpckl.supabase.co')
+    supabase_key = os.getenv('SUPABASE_KEY')
+
+    if not supabase_key:
+        st.error('SUPABASE_KEY 환경 변수를 설정해주세요.')
+        st.stop()
+
+    return create_client(supabase_url, supabase_key)
+
+# Supabase에서 데이터 로드
 @st.cache_data
 def load_data():
-    df = pd.read_csv('ethics_training_data.csv', encoding='utf-8')
-    df['완료율_숫자'] = df['완료율'].str.replace('%', '').astype(float)
+    supabase = init_supabase()
+    response = supabase.table('ethics_training').select('*').execute()
+
+    df = pd.DataFrame(response.data)
+    df = df.rename(columns={
+        'month': '월',
+        'department': '부서',
+        'course_name': '교육과정명',
+        'total_employees': '전사인원',
+        'completed': '이수자',
+        'not_completed': '미이수자',
+        'enrollment_rate': '수강진도율',
+        'completion_rate': '완료율'
+    })
+    df['완료율_숫자'] = df['완료율'].astype(float)
     return df
 
 df = load_data()
