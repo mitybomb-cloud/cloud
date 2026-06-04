@@ -2,43 +2,50 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from supabase import create_client, Client
-import os
+import requests
 
 st.set_page_config(page_title='홈앤쇼핑 월별 직급별 교육 현황', layout='wide')
 st.title('홈앤쇼핑 월별 직급별 교육 현황')
 
-# Supabase 연결
-@st.cache_resource
-def init_supabase() -> Client:
-    supabase_url = os.getenv('SUPABASE_URL', 'https://lxctrbmrjeypvctkpckl.supabase.co')
-    supabase_key = os.getenv('SUPABASE_KEY')
-
-    if not supabase_key:
-        st.error('SUPABASE_KEY 환경 변수를 설정해주세요.')
-        st.stop()
-
-    return create_client(supabase_url, supabase_key)
-
-# Supabase에서 데이터 로드
+# Supabase REST API에서 데이터 로드
 @st.cache_data
 def load_data():
-    supabase = init_supabase()
-    response = supabase.table('ethics_training').select('*').execute()
+    try:
+        supabase_url = st.secrets["supabase"]["url"]
+        supabase_key = st.secrets["supabase"]["key"]
 
-    df = pd.DataFrame(response.data)
-    df = df.rename(columns={
-        'month': '월',
-        'department': '부서',
-        'course_name': '교육과정명',
-        'total_employees': '전사인원',
-        'completed': '이수자',
-        'not_completed': '미이수자',
-        'enrollment_rate': '수강진도율',
-        'completion_rate': '완료율'
-    })
-    df['완료율_숫자'] = df['완료율'].astype(float)
-    return df
+        headers = {
+            'apikey': supabase_key,
+            'Content-Type': 'application/json'
+        }
+
+        response = requests.get(
+            f'{supabase_url}/rest/v1/ethics_training',
+            headers=headers,
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        df = pd.DataFrame(data)
+        df = df.rename(columns={
+            'month': '월',
+            'department': '부서',
+            'course_name': '교육과정명',
+            'total_employees': '전사인원',
+            'completed': '이수자',
+            'not_completed': '미이수자',
+            'enrollment_rate': '수강진도율',
+            'completion_rate': '완료율'
+        })
+        df['완료율_숫자'] = df['완료율'].astype(float)
+        return df
+    except Exception as e:
+        st.error(f'Supabase 연결 오류: {str(e)}')
+        st.info('CSV 파일에서 데이터를 로드합니다.')
+        df = pd.read_csv('ethics_training_data.csv', encoding='utf-8')
+        df['완료율_숫자'] = df['완료율'].str.replace('%', '').astype(float)
+        return df
 
 df = load_data()
 
