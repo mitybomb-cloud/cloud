@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+.streamlit/
+.env
+.DS_Store
+*.egg-info/
+dist/
+build/
+*_screenshot*.png
+e2e_test*.py
+E2E_TEST_REPORT.md
